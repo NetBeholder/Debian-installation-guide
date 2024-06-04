@@ -7,10 +7,10 @@ Essentially, this guide is the collective work of many people, based on whose �
 Well, «Debian... Debian never changes».
 
 Go!
-# Current status
+## Current status
 - _*always*_ beta
 
-# Features
+## Features
 * Stable with kernel from backports
 * UEFI
 * SSD or NVME disk
@@ -19,7 +19,7 @@ Go!
 * Swapfile instead of swap partition
 * GRUB Bootloader
 
-# Notes
+## Notes
 Some steps require more investigation, testing and optimization:
 - SSD optimization (trim/discard configuration)
 - fstab mount options
@@ -29,7 +29,7 @@ Some steps require more investigation, testing and optimization:
 
 Can be easily adapted to install as testing (or sid)
 
-# Disk layout:
+## Disk layout:
 * ESP / efi partition: 350M - fat32
 * Root partition: 100%FREESPACE - BTRFS <-- LUKSv1 or LUKSv2 container
 * BTRFS layout: 
@@ -44,6 +44,30 @@ Can be easily adapted to install as testing (or sid)
 	@apt       |   /var/cache/apt	
 
 # Table of contents
+0. [Introduction](#introduction)
+    1. [Current status](#current-status)
+    2. [Features](#features)
+    3. [Notes](#notes)
+    4. [Disk layout](#disk-layout)
+1. [Initial settings](#initial-settings)
+    1. [Live OS](#live-os)
+    2. [Logging in (locally)](#logging-in-locally)
+    3. [Configuring OpenSSH Server](#configuring-openssh-server)
+    4. [Establishing SSH-connection](#establishing-ssh-connection)
+    5. [BIOS or UEFI?](#bios-or-uefi)
+2. []
+
+    2. [Creating file systems and swap](#creating-file-systems-and-swap)
+    	1. [Set environment variables](#set-environment-variables)
+        2. [Partitioninig disks](#partitioninig-disks)
+        3. [Partitions encryption](#partitions-encryption)
+           1. [LUKS-encrypted boot](#luks-encrypted-boot)
+           2. [LUKS-encrypted root](#luks-encrypted-root)
+           3. [Open encrypted partitions](#open-encrypted-partitions)
+	4. [Configuring LVM](#configuring-lvm)
+	5. [Formatting partitions](#formatting-partitions)
+	6. [Mounting partitions](#mounting-partitions)
+	7. [Making swapfile](#making-swapfile)
 
 
 # Initial settings
@@ -53,7 +77,7 @@ The installation method (debootstrap) used in this guide requires internet acces
 ### Logging in (locally)
 The user "user" has the password "live"
 
-### Configuring OpenSSH server
+### Configuring OpenSSH Server
 First, let's set up a SSH server for remote connections and set a password for root.
 
 ```bash
