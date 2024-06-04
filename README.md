@@ -30,18 +30,18 @@ Some steps require more investigation, testing and optimization:
 Can be easily adapted to install as testing (or sid)
 
 # Disk layout:
-- ESP / efi partition: 350M - fat32
-- root partition: 100%FREESPACE - BTRFS <-- LUKSv1 or LUKSv2 container:
-- BTRFS layout:
-		typical
-	@  		/
-	@home 		/home
-	@snapshots /.snapshots
-	@swap		/swap
-	@log		/var/log
-	@apt		/var/cache/apt
-	
-	specific to some applications
+* ESP / efi partition: 350M - fat32
+* Root partition: 100%FREESPACE - BTRFS <-- LUKSv1 or LUKSv2 container
+* BTRFS layout: 
+
+	Subvolume  | Mount point
+	-----------|:--------------- 
+	@    	   |   / 
+	@home      |   /home 
+	@snapshots |   /.snapshots 
+	@swap      |   /swap
+	@log       |   /var/log 
+	@apt       |   /var/cache/apt	
 
 # Table of contents
 
@@ -86,6 +86,7 @@ First check the target disk device (sdX, nvmeXnY).
 > _SATA device:_
 ```bash
 lsblk
+
   NAME    MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS 
   loop0     7:0    0 849.1M  1 loop
   loop1     7:1    0     4G  1 loop /run/rootfsbase
@@ -94,7 +95,8 @@ lsblk
 ```
 > _NVME device:_
 ```bash
-lsblk 
+lsblk
+
   NAME    MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
   loop0     7:0    0 849.1M  1 loop
   loop1     7:1    0     4G  1 loop /run/rootfsbase
@@ -126,6 +128,7 @@ cfdisk "${DEV}"
   Free space
   [NEW]
   Partition size: 350M  #ESP/efi partition size can be safely set to 100M+. I usually prefer 200-350M.
+  Type: EFI System
   Free space
   New
   Partition size: 18.7G (100% free space)
@@ -134,7 +137,6 @@ cfdisk "${DEV}"
   [Quit]
 ```
 And check the final scheme.
-
 > _SATA device:_
 ```bash
 lsblk -l
@@ -223,7 +225,7 @@ btrfs subvolume create /mnt/@libvirt
 btrfs subvolume create /mnt/@docker
 ```
 #### Mounting partitions and subvolumes
-Create directories and mount BTRFS subvolumes:
+Create directories and mount the BTRFS subvolumes:
 ```bash
 mkdir -p /mnt/{swap,.snapshots,home,var/log,var/cache/apt}
 mount -o subvol=@snapshots,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/.snapshots
@@ -249,46 +251,37 @@ chattr +C -R /mnt/var/lib/libvirt/images/
 
 #### Making swapfile
 Determining the size of the swap file (partition) can be tricky. If you use hibernation, the swap space size should equal the amount of RAM plus the square root of the RAM amount.
-SwapFileSize = RAM + SQRT(RAM)
-
-if you use hibernation, the swap space size should equal the amount of RAM plus the square root of the RAM amount.
+> SwapFileSize = RAM + SQRT(RAM).
+Thus, if the RAM size is 4, then the swap partition size should be 6.
 ```bash
 # disabling the copy-on-write feature should also disable compression
 chattr +C -R /mnt/swap
 #btrfs property set /mnt/swap compression none
-btrfs filesystem mkswapfile --size 4G --uuid clear /mnt/swap/swapfile
-#btrfs filesystem mkswapfile --size 33G --uuid clear /mnt/swap/swapfile
+btrfs filesystem mkswapfile --size 6G --uuid clear /mnt/swap/swapfile
 #mkswap -L SWAP /mnt/swap/swapfile
 swapon /mnt/swap/swapfile
 ```
-## System Installation
-### Base system (debootstrap)
-
-```console
-# Install the necessary packages
+# System Installation
+We are ready to deploy Debian.
+## Base system (debootstrap)
+```bash
 apt install debootstrap arch-install-scripts
-
-# Install the base system (stable)
 debootstrap --arch amd64 stable /mnt
-```console
-
-### Chroot
-```console
+```
+## Chroot
+```bash
 genfstab -U /mnt >> /mnt/etc/fstab
 arch-chroot /mnt /bin/bash
 ```
-
-### Basic configuration
-#### Root password ans shell
+## Basic configuration
+### Root password ans shell
 ```bash
 passwd root
 chsh -s /bin/bash
 ```
-
-#### Hostname and /etc/hosts
-```console
+### Hostname and /etc/hosts
+```bash
 echo "debian-host" > /etc/hostname
-
 #Optionally
 cat > /etc/hosts << EOF
 127.0.0.1 localhost
@@ -298,19 +291,15 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 EOF
 ```
-
-
-
-#### Date and time
-```console
+### Date and time
+```bash
 export TimeZone="Europe/Moscow"
 ln -fs /usr/share/zoneinfo/${TimeZone} /etc/localtime
 #ln -fs /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 dpkg-reconfigure --frontend noninteractive tzdata
 ```
-
-#### System locales
-```console
+### System locales
+```bash
 apt install locales
 #dpkg-reconfigure locales
 sed -i 's/# en_US.UTF-8/en_US.UTF-8/g' /etc/locale.gen
@@ -319,38 +308,15 @@ sed -i 's/# ru_RU.UTF-8/ru_RU.UTF-8/g' /etc/locale.gen
 echo 'LANG="en_US.UTF-8"' > /etc/default/locale
 dpkg-reconfigure --frontend=noninteractive locales
 update-locale LANG=en_US.UTF-8
-
 #dpkg-reconfigure locales
 ```
-
-#### Apt sources
-Look at https://wiki.debian.org/SourcesList and choose the most suitable option. 
-I'm using the second option.
-
-```console
+### Apt sources list
+See https://wiki.debian.org/SourcesList.
+```bash
 apt install lsb-release
 mv /etc/apt/sources.list /etc/apt/sources.list.old
 CODENAME=$(lsb_release --codename --short)
-```
-
-```console
-# stable
-cat > /etc/apt/sources.list << EOF
-deb http://deb.debian.org/debian bookworm main non-free-firmware
-deb-src http://deb.debian.org/debian bookworm main non-free-firmware
-
-deb http://deb.debian.org/debian-security/ bookworm-security main non-free-firmware
-deb-src http://deb.debian.org/debian-security/ bookworm-security main non-free-firmware
-
-deb http://deb.debian.org/debian bookworm-updates main non-free-firmware
-deb-src http://deb.debian.org/debian bookworm-updates main non-free-firmware
-EOF
-
-apt update
-```
-
-stable with backports
-```console
+#stable, non-free, backports
 cat > /etc/apt/sources.list << EOF
 deb http://deb.debian.org/debian ${CODENAME} main contrib non-free non-free-firmware
 deb-src http://deb.debian.org/debian ${CODENAME} main contrib non-free non-free-firmware
@@ -368,9 +334,8 @@ EOF
 apt update
 ```
 ### System packages and kernel
-For better hardware support (Wi-Fi), I use the kernel from the backport repository. Alternatively, it can be installed from the main repo.
-
-```console 
+For better hardware support (Wi-Fi), I use the kernel from the backports repository. Alternatively, it can be installed from the main repo.
+```bash 
 apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus# usbutils hwinfo
 
 #install kernel from backports
@@ -381,19 +346,17 @@ apt install linux-image-amd64/${CODENAME}-backports \
 #OR from main repo
 #apt install linux-image-amd64 linux-headers-amd64
 ```
-
 ### Encryption settings
 #### Environment variables
-
-Setting the ​​environment variables
-```console
+Setting the ​​environment variables:
+```bash
 export LUKS_UUID=$(blkid -s UUID -o value /dev/"${DM}${RPN}")
 export SWAPFILE_UUID=`findmnt -no UUID -T /swap/swapfile`
 export SWAPFILE_OFFSET=`btrfs inspect-internal map-swapfile -r /swap/swapfile`
 export cryptkey=/etc/keys/root.key
-
+```
 #### LUKS Keyfile
-```console
+```bash
 mkdir -m0700 /etc/keys
 umask 0077 && dd if=/dev/urandom bs=1 count=64 of=${cryptkey} conv=excl,fsync
 cryptsetup luksAddKey ${DEVP}${RPN} $cryptkey
@@ -402,29 +365,24 @@ cryptsetup luksAddKey ${DEVP}${RPN} $cryptkey
 #dd bs=512 count=4 if=/dev/urandom of=$cryptkey
 #cryptsetup luksAddKey ${DEVP}${RPN} $cryptkey
 #chmod 600 $cryptkey
-
+```
 #### crypttab
 #crypttab. Edit the crypttab(5) and set the third column to the key file path for the root device entry.
-#### crypttab
-```console
+```bash
 echo "${DM}${RPN}_crypt UUID=$(blkid -s UUID -o value ${DEVP}${RPN}) $cryptkey luks,discard,key-slot=1" >> /etc/crypttab
 ```
-
 #### initramfs
-```console
+```bash
 #In /etc/cryptsetup-initramfs/conf-hook, set KEYFILE_PATTERN to a glob(7) expanding to the key path names to include to the initramfs image.
 echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >>/etc/cryptsetup-initramfs/conf-hook
 #In /etc/initramfs-tools/initramfs.conf, set UMASK to a restrictive value to avoid leaking key material. See initramfs.conf(5) for details.
 echo UMASK=0077 >> /etc/initramfs-tools/initramfs.conf
 #Finally re-generate the initramfs image, and double-check that it 1/ has restrictive permissions; and 2/ includes the key.
 update-initramfs -u #update-initramfs -c -k all
-```console
-
+```
 ### Bootloader
-```console
-
+```bash
 #grub config
-
 sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\(\"[^\"]*\)$/ cryptdevice=UUID=${LUKS_UUID}:${DM}${RPN}_crypt root=\/dev\/mapper\/${DM}${RPN}_crypt resume=UUID=$SWAPFILE_UUID resume_offset=$SWAPFILE_OFFSET&/" /etc/default/grub
 
 echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
@@ -433,13 +391,15 @@ echo 'GRUB_PRELOAD_MODULES="part_gpt part_msdos cryptodisk luks btrfs"' >> /etc/
 echo 'GRUB_GFXPAYLOAD=keep' >> /etc/default/grub
 echo 'GRUB_TERMINAL=gfxterm' >> /etc/default/grub
 echo 'GRUB_GFXMODE=1920x1080x32' >> /etc/default/grub
-#
+
 update-grub
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Debian --recheck
 ```
 
-###
- leave chroot environment and reboot the machine
+### Finalizing OS Installation
+Leave chroot environment and reboot the machine.
+```bash
 exit
 umount -a
 reboot
+```
