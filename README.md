@@ -1,24 +1,22 @@
 # Installation Guide for Debian 12 (Stable) | FDE | SSD | LUKS | BTRFS
-Debian 12 GNU/Linux Installation Guide (SSD/NVMe, FDE with LUKS, BTRFS and debootstrap)
+Debian 12 GNU/Linux Installation Guide (SSD/NVMe, FDE with LUKS, BTRFS and debootstrap as deploying method)
 # Introduction
-Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and relatively debugged this guide. So watch the ref and read.
-
+Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and relatively debugged this guide. I hope I didn't forget to mention anyone. So watch the refs and read.
 
 Well, «Debian... Debian never changes».
 
 Go!
 ## Current status
-- _*always*_ beta
-
+- Will _always_ be a beta version and without any guarantees in the future. Price of freedom.
+- Tested for Debian 12 "Bookworm" Stable.
 ## Features
 * Stable with kernel from backports
 * UEFI
 * SSD or NVME disk
 * FDE: LUKS1 or LUKS2 with some limitations of current GRUB version.
-* BTRFS
+* BTRFS and snapshots
 * Swapfile instead of swap partition
 * GRUB Bootloader
-
 ## Notes
 Some steps require more investigation, testing and optimization:
 - SSD optimization (trim/discard configuration)
@@ -27,11 +25,10 @@ Some steps require more investigation, testing and optimization:
 - cryptsetup iter-time value (to find a good balance between security and system startup time)
 - ?
 
-Can be easily adapted to install as testing (or sid)
-
+This guide can be easily adapted to install Debian Testing or Sid without much effort.
 ## Disk layout:
 * ESP / efi partition: 350M - fat32
-* Root partition: 100%FREESPACE - BTRFS <-- LUKSv1 or LUKSv2 container
+* Root partition: 100%FREESPACE <-- BTRFS with subvolumes <-- LUKSv1 or LUKSv2 container
 * BTRFS layout: 
 
 	Subvolume  | Mount point
@@ -42,7 +39,6 @@ Can be easily adapted to install as testing (or sid)
 	@swap      |   /swap
 	@log       |   /var/log 
 	@apt       |   /var/cache/apt	
-
 # Table of contents
 0. [Introduction](#introduction)
     1. [Current status](#current-status)
@@ -51,24 +47,51 @@ Can be easily adapted to install as testing (or sid)
     4. [Disk layout](#disk-layout)
 1. [Initial settings](#initial-settings)
     1. [Live OS](#live-os)
-    2. [Logging in (locally)](#logging-in-locally)
-    3. [Configuring OpenSSH Server](#configuring-openssh-server)
-    4. [Establishing SSH-connection](#establishing-ssh-connection)
-    5. [BIOS or UEFI?](#bios-or-uefi)
-2. []
-
+    	1. [Logging in (locally)](#logging-in-locally)
+    	2. [Configuring OpenSSH Server](#configuring-openssh-server)
+    	3. [Establishing SSH connection](#establishing-ssh-connection)
+    	4. [BIOS or UEFI?](#bios-or-uefi)
     2. [Creating file systems and swap](#creating-file-systems-and-swap)
     	1. [Set environment variables](#set-environment-variables)
-        2. [Partitioninig disks](#partitioninig-disks)
-        3. [Partitions encryption](#partitions-encryption)
-           1. [LUKS-encrypted boot](#luks-encrypted-boot)
-           2. [LUKS-encrypted root](#luks-encrypted-root)
-           3. [Open encrypted partitions](#open-encrypted-partitions)
-	4. [Configuring LVM](#configuring-lvm)
-	5. [Formatting partitions](#formatting-partitions)
-	6. [Mounting partitions](#mounting-partitions)
+        2. [Partitioning disk](#partitioning-disk)
+        3. [Partitions encryption](#partition-encryption)
+           1. [LUKS-encrypted root](#luks-encrypted-root)
+           2. [Opening encrypted partitions](#open-encrypted-partitions)
+	4. [Formatting partitions](#formatting-partitions)
+ 	5. [Creating BTRFS subvolumes](#creating-btrfs-subvolumes)
+	6. [Mounting partitions and subvolumes](#mounting-partitions-and-subvolumes)
 	7. [Making swapfile](#making-swapfile)
+2. [System installation]
+    1. [Base system (debootstrap)](#base-system-debootstrap)
+    2. [Chroot](#chroot)
+    3. [Basic configuration](#basic-configuration)
+        1. [Root password and shell](#root-password-and-shell)
+        2. [Hostname and /etc/hosts](hostname-and-etc-hosts)
+        3. [Date and time](#date-and-time)
+        4. [System locales](#system-locales)
+        5. [Apt sources list](apt-sources-list)
+        6. [System packages and kernel](#system-packages-and-kernel)
+        7. [Encryption settings](encryption-settings)
+            1. [Environemnt variables](environment-variables)
+            2. [LUKS Keyfile](luks-keyfile)
+            3. [crypttab](#crypttab)
+            4. [initramfs](#initramfs)
+	8. [Bootloader](#bootloader)
+    4. [Completing OS installation]
 
+
+3. [Further steps](#further-steps)
+	1. [System-wide settings](#system-wide-settings)
+ 		1. [Network configuration (NetworkManager)](#network-configuration-networkmanager)
+   		2. [Firmware](#firmware)
+  		3. [Date and time](#date-and-time)
+    	4. [Syslog (socklog)](#syslog-socklog)
+     	5. [Seat management](#seat-management)
+     2. [User settings](#user-settings)
+     	1. [New normal user and doas](#new-normal-user-and-doas)
+5. [Refs](#refs)
+6. [See also](#see-also)
+7. [Bonus №1](bonus-1)
 
 # Initial settings
 ## Live OS
@@ -104,7 +127,7 @@ mount | grep efivars
   # it is UEFI.
 ```
 ## Creating file systems and swap
-### Set Environment variables
+### Set environment variables
 First check the target disk device (sdX, nvmeXnY).
 
 > _SATA device:_
@@ -144,7 +167,7 @@ export EPN=1
 #Root Partition Number
 export RPN=2
 ```
-### Partitioninig disks
+### Partitioning disk
 Let's create partitions with cfdisk:
 ```bash
 cfdisk "${DEV}"
@@ -194,7 +217,6 @@ Neither GRUB 2.12 nor GRUB 2.06 currently supports the Argon2id PBKDF.
 >Note: Passphrase iteration count is based on time and hence security level depends on CPU power of the system the LUKS container is created on. Depending on security requirements, this may need adjustment.  For LUKS1, you can just look at the iteration count on different systems and select one you like.  You can also change the benchmark time with the -i parameter to create a header for a slower system.
 See: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#2-setup
 #### LUKS-encrypted root
-
 > to create a LUKSv1 container:
 ```bash
 cryptsetup -y -v luksFormat --type=luks1 -i 500 "${DEVP}${RPN}" #-i 1000? More value - longer loading!
@@ -219,12 +241,13 @@ cryptsetup open ${DEVP}${RPN} ${DM}${RPN}_crypt --allow-discards --perf-no_read_
   Enter passphrase for /dev/sda2:
   #Enter passphrase for /dev/nvme0n1p2:
 ```
-#### Formatting partitions
+### Formatting partitions
 ```bash
 mkfs.vfat -nESP -F32 ${DEVP}${EPN}
 mkfs.btrfs -L root /dev/mapper/${DM}${RPN}_crypt
 ```
-#### Creating BTRFS subvolumes
+### Creating BTRFS subvolumes
+
 ```bash
 mount_opt="rw,noatime,compress=lzo,ssd,discard=async,space_cache,space_cache=v2,commit=120"
 mount -o $mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt
@@ -248,7 +271,7 @@ btrfs subvolume create /mnt/@libvirt
 # docker
 btrfs subvolume create /mnt/@docker
 ```
-#### Mounting partitions and subvolumes
+### Mounting partitions and subvolumes
 Create directories and mount the BTRFS subvolumes:
 ```bash
 mkdir -p /mnt/{swap,.snapshots,home,var/log,var/cache/apt}
@@ -298,7 +321,7 @@ genfstab -U /mnt >> /mnt/etc/fstab
 arch-chroot /mnt /bin/bash
 ```
 ## Basic configuration
-### Root password ans shell
+### Root password and shell
 ```bash
 passwd root
 chsh -s /bin/bash
@@ -390,12 +413,12 @@ cryptsetup luksAddKey ${DEVP}${RPN} $cryptkey
 #cryptsetup luksAddKey ${DEVP}${RPN} $cryptkey
 #chmod 600 $cryptkey
 ```
-#### crypttab
+#### Crypttab
 #crypttab. Edit the crypttab(5) and set the third column to the key file path for the root device entry.
 ```bash
 echo "${DM}${RPN}_crypt UUID=$(blkid -s UUID -o value ${DEVP}${RPN}) $cryptkey luks,discard,key-slot=1" >> /etc/crypttab
 ```
-#### initramfs
+#### Initramfs
 ```bash
 #In /etc/cryptsetup-initramfs/conf-hook, set KEYFILE_PATTERN to a glob(7) expanding to the key path names to include to the initramfs image.
 echo "KEYFILE_PATTERN=\"/etc/keys/*.key\"" >>/etc/cryptsetup-initramfs/conf-hook
