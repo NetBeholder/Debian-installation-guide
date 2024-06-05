@@ -13,7 +13,7 @@ Go!
 * Stable with kernel from backports
 * UEFI
 * SSD or NVME disk
-* FDE: LUKS1 or LUKS2 with some limitations of current GRUB version.
+* FDE: LUKSv1 or LUKSv2 with some limitations of current GRUB version.
 * BTRFS and snapshots
 * Swapfile instead of swap partition
 * GRUB Bootloader
@@ -131,7 +131,7 @@ lsblk
                                  /run/live/rootfs/filesystem.squashfs
   sda     8:0    0   20G  0 disk
   sr0    11:0    1    3G  0 rom  /usr/lib/live/mount/medium
-                               /run/live/medium
+                                 /run/live/medium
 ```
 > _NVME device:_
 ```bash
@@ -239,7 +239,7 @@ mkfs.btrfs -L root /dev/mapper/${DM}${RPN}_crypt
 ```
 ### Creating BTRFS subvolumes
 ```bash
-mount_opt="rw,noatime,g,ssd,discard=async,space_cache,space_cache=v2,commit=120"
+mount_opt="rw,noatime,compress=lzo,ssd,discard=async,space_cache,space_cache=v2,commit=120"
 mount -o $mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt
 mkdir -p /mnt/boot/efi
 mount ${DEVP}${EPN} /mnt/boot/efi/
@@ -285,11 +285,16 @@ chattr +C -R /mnt/var/lib/libvirt/images/
 #mount -o subvol=@docker,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/docker/btrfs
 #chattr +C -R /mnt/var/lib/docker/btrfs
 ```
-
 #### Making swapfile
-Determining the size of the swap file (partition) can be tricky. If you use hibernation, the swap space size should equal the amount of RAM plus the square root of the RAM amount.
+Although the Debian Wiki does [not recommend](https://wiki.debian.org/Btrfs#Status) using swap files for the btrfs filesystem, it seems more convenient than a dedicated partition, at least for the desktop.
+From Debian Wiki: 
+> While support for swap files was added to linux-5.0, it is highly recommended to use a dedicated swap partition. Furthermore, enabling swap using a virtual block (loop) device is dangerous, because this "will only cause memory allocation lock-ups" (Martin Raiber, linux-btrfs).
+
+Also, determining the size of the swap file (partition) can be tricky. If you use hibernation, the swap space [size](https://itsfoss.com/swap-size/) should equal the amount of RAM plus the square root of the RAM amount.
 > SwapFileSize = RAM + SQRT(RAM).
-Thus, if the RAM size is 4, then the swap partition size should be 6.
+
+Thus, if the RAM size is 4, then the swap file size should be 6.
+Anyway, сalculate the size of the swap file as you prefer.
 ```bash
 # disabling the copy-on-write feature should also disable compression
 chattr +C -R /mnt/swap
@@ -304,6 +309,7 @@ We are ready to deploy Debian.
 ```bash
 apt install debootstrap arch-install-scripts
 debootstrap --arch amd64 stable /mnt
+#debootstrap --arch amd64 testing /mnt # for Debian Testing 
 ```
 ## Chroot
 ```bash
@@ -322,7 +328,7 @@ HOSTNAME="debian-host"
 echo "${HOSTNAME}" > /etc/hostname
 
 TAB="$(printf '\t')"
-cat > /etc/hostss << EOF
+cat > /etc/hosts << EOF
 127.0.0.1${TAB}localhost ${HOSTNAME}
 ::1${TAB}${TAB}localhost ip6-localhost ip6-loopback
 fe00::0${TAB}${TAB}ip6-localnet
@@ -353,6 +359,7 @@ update-locale LANG=en_US.UTF-8
 ### Console font
 ```bash
 # Something like UTF-8 --> Guess optimal character set --> TerminusBold --> 16х32 (framebuffer only)
+apt install console-setup
 dpkg-reconfigure console-setup
 ```
 ### Apt sources list
@@ -381,7 +388,7 @@ apt update
 ### System packages and kernel
 For better hardware support (Wi-Fi), I use the kernel from the backports repository. Alternatively, it can be installed from the main repo.
 ```bash 
-apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus# usbutils hwinfo
+apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus # usbutils hwinfo
 
 #install kernel from backports
 #apt install -t ${CODENAME}-backports linux-image-amd64 linux-headers-amd64
@@ -392,8 +399,8 @@ apt install linux-image-amd64/${CODENAME}-backports \
 #apt install linux-image-amd64 linux-headers-amd64
 ```
 ### Encryption settings
+See details [here](https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html)
 #### Environment variables
-Setting the ​​environment variables:
 ```bash
 export LUKS_UUID=$(blkid -s UUID -o value /dev/"${DM}${RPN}")
 export SWAPFILE_UUID=`findmnt -no UUID -T /swap/swapfile`
@@ -450,5 +457,9 @@ reboot
 ```
 
 https://wiki.debian.org/initramfs
+https://wiki.debian.org/Btrfs
 https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
-
+https://btrfs.readthedocs.io/en/stable/Swapfile.html
+https://wiki.debian.org/SSDOptimization
+https://itsfoss.com/swap-size/
+https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html
