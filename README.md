@@ -61,7 +61,7 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
  	5. [Creating BTRFS subvolumes](#creating-btrfs-subvolumes)
 	6. [Mounting partitions and subvolumes](#mounting-partitions-and-subvolumes)
 	7. [Making swapfile](#making-swapfile)
-2. [System installation]
+2. [System installation](#system-installation)
     1. [Base system (debootstrap)](#base-system-debootstrap)
     2. [Chroot](#chroot)
     3. [Basic configuration](#basic-configuration)
@@ -81,7 +81,6 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
     4. [Completing OS installation]
 
 3. [Next steps]
-3. [Further steps](#further-steps)
 	1. [System-wide settings](#system-wide-settings)
  		1. [Network configuration (NetworkManager)](#network-configuration-networkmanager)
    		2. [Firmware](#firmware)
@@ -105,7 +104,7 @@ First, let's check whether UEFI is supported by the target machine. To determine
 ```bash
 mount | grep efivars
   efivarfs on /sys/firmware/efi/efivars type efivarfs (rw,nosuid,nodev,noexec,relatime)
-  # it is UEFI.
+  # there is UEFI.
 ```
 ### Configuring OpenSSH Server
 Than, let's set up an SSH server for remote connections.
@@ -123,7 +122,6 @@ sudo -s
 ## Creating file systems and swap
 ### Set environment variables
 Check the target disk device (sdX, nvmeXnY).
-
 > _SATA device:_
 ```bash
 lsblk
@@ -182,14 +180,15 @@ And check the final scheme.
 > _SATA device:_
 ```bash
 lsblk -l
-NAME  MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-loop0   7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
-                               /run/live/rootfs/filesystem.squashfs
-sda     8:0    0   20G  0 disk
-sda1    8:1    0  350M  0 part
-sda2    8:2    0 19.7G  0 part
-sr0    11:0    1    3G  0 rom  /usr/lib/live/mount/medium
-                               /run/live/medium
+
+  NAME  MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+  loop0   7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
+                                 /run/live/rootfs/filesystem.squashfs
+  sda     8:0    0   20G  0 disk
+  sda1    8:1    0  350M  0 part
+  sda2    8:2    0 19.7G  0 part
+  sr0    11:0    1    3G  0 rom  /usr/lib/live/mount/medium
+                                 /run/live/medium
 ```
 > _NVME device:_
 ```bash
@@ -204,7 +203,6 @@ lsblk -l
   nvme0n1p2 259:5    0     1G  0 part
   nvme0n1p3 259:6    0  18.7G  0 part
 ```
-
 ### Partition encryption
 Neither GRUB 2.12 nor GRUB 2.06 currently supports the Argon2id PBKDF.
 
@@ -240,9 +238,8 @@ mkfs.vfat -nESP -F32 ${DEVP}${EPN}
 mkfs.btrfs -L root /dev/mapper/${DM}${RPN}_crypt
 ```
 ### Creating BTRFS subvolumes
-
 ```bash
-mount_opt="rw,noatime,compress=lzo,ssd,discard=async,space_cache,space_cache=v2,commit=120"
+mount_opt="rw,noatime,g,ssd,discard=async,space_cache,space_cache=v2,commit=120"
 mount -o $mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt
 mkdir -p /mnt/boot/efi
 mount ${DEVP}${EPN} /mnt/boot/efi/
@@ -453,5 +450,5 @@ reboot
 ```
 
 https://wiki.debian.org/initramfs
-
+https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
 
