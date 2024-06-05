@@ -8,7 +8,7 @@ Well, «Debian... Debian never changes».
 Go!
 ## Current status
 - Will _always_ be a beta version and without any guarantees in the future. Price of freedom.
-- Tested for Debian 12 "Bookworm" Stable.
+- Tested for Debian 12.5.0 "Bookworm" Stable.
 ## Features
 * Stable with kernel from backports
 * UEFI
@@ -137,11 +137,11 @@ lsblk
 ```bash
 lsblk
 
-  NAME    MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
-  loop0     7:0    0 849.1M  1 loop
-  loop1     7:1    0     4G  1 loop /run/rootfsbase
-  sr0      11:0    1   983M  0 rom  /run/initramfs/live
-  nvme0n1 259:0    0    20G  0 disk
+  NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+  loop0     7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
+                                   /run/live/rootfs/filesystem.squashfs
+  sr0      11:0    1    3G  0 rom  /usr/lib/live/mount/medium
+                                   /run/live/medium
 ```
 Then set the environment variables:
 ```bash
@@ -194,14 +194,14 @@ lsblk -l
 ```bash
 lsblk -l
 
-  NAME      MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
-  loop0       7:0    0 849.1M  1 loop
-  loop1       7:1    0     4G  1 loop /run/rootfsbase
-  sr0        11:0    1   983M  0 rom  /run/initramfs/live
-  nvme0n1   259:0    0    20G  0 disk
-  nvme0n1p1 259:4    0   350M  0 part
-  nvme0n1p2 259:5    0     1G  0 part
-  nvme0n1p3 259:6    0  18.7G  0 part
+  NAME      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+  loop0       7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
+                                     /run/live/rootfs/filesystem.squashfs
+  sr0        11:0    1    3G  0 rom  /usr/lib/live/mount/medium
+                                     /run/live/medium
+  nvme0n1   259:0    0   20G  0 disk
+  nvme0n1p1 259:1    0  350M  0 part
+  nvme0n1p2 259:2    0 19.7G  0 part
 ```
 ### Partition encryption
 Neither GRUB 2.12 nor GRUB 2.06 currently supports the Argon2id PBKDF.
@@ -388,14 +388,14 @@ apt update
 ### System packages and kernel
 For better hardware support (Wi-Fi), I use the kernel from the backports repository. Alternatively, it can be installed from the main repo.
 ```bash 
-apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus # usbutils hwinfo
+#apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus # usbutils hwinfo
 
 #install kernel from backports
 #apt install -t ${CODENAME}-backports linux-image-amd64 linux-headers-amd64
 apt install linux-image-amd64/${CODENAME}-backports \
  linux-headers-amd64/${CODENAME}-backports
 
-#OR from main repo
+#OR from main repo 
 #apt install linux-image-amd64 linux-headers-amd64
 ```
 ### Encryption settings
@@ -455,11 +455,11 @@ exit
 umount -a
 reboot
 ```
-
-https://wiki.debian.org/initramfs
-https://wiki.debian.org/Btrfs
-https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
-https://btrfs.readthedocs.io/en/stable/Swapfile.html
-https://wiki.debian.org/SSDOptimization
-https://itsfoss.com/swap-size/
-https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html
+# Refs
+  0. https://wiki.debian.org/initramfs
+  1. https://wiki.debian.org/Btrfs
+  2. https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
+  3. https://btrfs.readthedocs.io/en/stable/Swapfile.html
+  4. https://wiki.debian.org/SSDOptimization
+  5. https://itsfoss.com/swap-size/
+  6. https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html
