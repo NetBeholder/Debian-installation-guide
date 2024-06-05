@@ -47,10 +47,10 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
     4. [Disk layout](#disk-layout)
 1. [Initial settings](#initial-settings)
     1. [Live OS](#live-os)
-    	1. [Logging in (locally)](#logging-in-locally)
-    	2. [Configuring OpenSSH Server](#configuring-openssh-server)
-    	3. [Establishing SSH connection](#establishing-ssh-connection)
-    	4. [BIOS or UEFI?](#bios-or-uefi)
+        1. [Logging in (locally)](#logging-in-locally)
+        2. [BIOS or UEFI?](#bios-or-uefi)
+    	3. [Configuring OpenSSH Server](#configuring-openssh-server)
+    	4. [Connecting via ssh](#connecting-via-ssh)
     2. [Creating file systems and swap](#creating-file-systems-and-swap)
     	1. [Set environment variables](#set-environment-variables)
         2. [Partitioning disk](#partitioning-disk)
@@ -69,9 +69,10 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
         2. [Hostname and /etc/hosts](hostname-and-etc-hosts)
         3. [Date and time](#date-and-time)
         4. [System locales](#system-locales)
-        5. [Apt sources list](apt-sources-list)
-        6. [System packages and kernel](#system-packages-and-kernel)
-        7. [Encryption settings](encryption-settings)
+        5. [Console font](#console-font)
+        6. [Apt sources list](apt-sources-list)
+        7. [System packages and kernel](#system-packages-and-kernel)
+        8. [Encryption settings](encryption-settings)
             1. [Environemnt variables](environment-variables)
             2. [LUKS Keyfile](luks-keyfile)
             3. [crypttab](#crypttab)
@@ -79,7 +80,7 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
 	8. [Bootloader](#bootloader)
     4. [Completing OS installation]
 
-
+3. [Next steps]
 3. [Further steps](#further-steps)
 	1. [System-wide settings](#system-wide-settings)
  		1. [Network configuration (NetworkManager)](#network-configuration-networkmanager)
@@ -99,46 +100,40 @@ The installation method (debootstrap) used in this guide requires internet acces
 
 ### Logging in (locally)
 The user "user" has the password "live"
-
-### Configuring OpenSSH Server
-First, let's set up a SSH server for remote connections and set a password for root.
-
-```bash
-sudo -s
-# set password for root
-passwd
-apt install openssh-server
-echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
-systemctl restart sshd
-ss -tuln | grep 22
-ip a s
-```
-### Establishing SSH-connection
-Initiate SSH-session to the live OS instance with root/"YourPass" credentials from your prefered SSH-client.
-```bash
-ssh root@IP
-#sudo -s
-```
 ### BIOS or UEFI?
-To determine the platform, run:
+First, let's check whether UEFI is supported by the target machine. To determine the platform, run:
 ```bash
 mount | grep efivars
   efivarfs on /sys/firmware/efi/efivars type efivarfs (rw,nosuid,nodev,noexec,relatime)
   # it is UEFI.
 ```
+### Configuring OpenSSH Server
+Than, let's set up an SSH server for remote connections.
+```bash
+sudo apt install openssh-server
+ss -tuln | grep 22
+ip a s
+```
+### Connecting via ssh
+Finally, SSH into a running Live Debian with "user/password" credentials using your preferred SSH client.
+```bash
+ssh user@IP
+sudo -s
+```
 ## Creating file systems and swap
 ### Set environment variables
-First check the target disk device (sdX, nvmeXnY).
+Check the target disk device (sdX, nvmeXnY).
 
 > _SATA device:_
 ```bash
 lsblk
 
-  NAME    MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS 
-  loop0     7:0    0 849.1M  1 loop
-  loop1     7:1    0     4G  1 loop /run/rootfsbase
-  sda       8:0    0    20G  0 disk
-  sr0      11:0    1   983M  0 rom  /run/initramfs/live
+  NAME  MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+  loop0   7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
+                                 /run/live/rootfs/filesystem.squashfs
+  sda     8:0    0   20G  0 disk
+  sr0    11:0    1    3G  0 rom  /usr/lib/live/mount/medium
+                               /run/live/medium
 ```
 > _NVME device:_
 ```bash
@@ -187,15 +182,14 @@ And check the final scheme.
 > _SATA device:_
 ```bash
 lsblk -l
-
-  NAME  MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
-  loop0   7:0    0 849.1M  1 loop
-  loop1   7:1    0     4G  1 loop /run/rootfsbase
-  sda     8:0    0    20G  0 disk
-  sda1    8:1    0   350M  0 part
-  sda2    8:2    0     1G  0 part
-  sda3    8:3    0  18.7G  0 part
-  sr0    11:0    1   983M  0 rom  /run/initramfs/live
+NAME  MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+loop0   7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
+                               /run/live/rootfs/filesystem.squashfs
+sda     8:0    0   20G  0 disk
+sda1    8:1    0  350M  0 part
+sda2    8:2    0 19.7G  0 part
+sr0    11:0    1    3G  0 rom  /usr/lib/live/mount/medium
+                               /run/live/medium
 ```
 > _NVME device:_
 ```bash
@@ -221,7 +215,6 @@ See: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#2
 ```bash
 cryptsetup -y -v luksFormat --type=luks1 -i 500 "${DEVP}${RPN}" #-i 1000? More value - longer loading!
 ```
-
 > to create a LUKSv2 container (pbkdf2):
 ```bash
 cryptsetup --pbkdf pbkdf2 --key-size 512 --hash sha512 luksFormat "${DEVP}${RPN}" 
@@ -328,14 +321,17 @@ chsh -s /bin/bash
 ```
 ### Hostname and /etc/hosts
 ```bash
-echo "debian-host" > /etc/hostname
-#Optionally
-cat > /etc/hosts << EOF
-127.0.0.1 localhost
-127.0.1.1 $(cat /etc/hostname)
-::1 localhost ip6-localhost ip6-loopback
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
+HOSTNAME="debian-host"
+echo "${HOSTNAME}" > /etc/hostname
+
+TAB="$(printf '\t')"
+cat > /etc/hostss << EOF
+127.0.0.1${TAB}localhost ${HOSTNAME}
+::1${TAB}${TAB}localhost ip6-localhost ip6-loopback
+fe00::0${TAB}${TAB}ip6-localnet
+ff00::0${TAB}${TAB}ip6-mcastprefix
+ff02::1${TAB}${TAB}ip6-allnodes
+ff02::2${TAB}${TAB}ip6-allrouters
 EOF
 ```
 ### Date and time
@@ -356,6 +352,11 @@ echo 'LANG="en_US.UTF-8"' > /etc/default/locale
 dpkg-reconfigure --frontend=noninteractive locales
 update-locale LANG=en_US.UTF-8
 #dpkg-reconfigure locales
+```
+### Console font
+```bash
+# Something like UTF-8 --> Guess optimal character set --> TerminusBold --> 16х32 (framebuffer only)
+dpkg-reconfigure console-setup
 ```
 ### Apt sources list
 See https://wiki.debian.org/SourcesList.
@@ -450,3 +451,7 @@ exit
 umount -a
 reboot
 ```
+
+https://wiki.debian.org/initramfs
+
+
