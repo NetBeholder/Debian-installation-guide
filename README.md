@@ -1,7 +1,7 @@
 # Installation Guide for Debian 12 (Stable) | FDE | SSD | LUKS | BTRFS
 Debian 12 GNU/Linux Installation Guide (SSD/NVME, FDE with LUKS, BTRFS and debootstrap as deploying method)
 # Introduction
-Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and relatively debugged this guide. I hope I didn't forget to mention anyone. So watch the refs and read.
+Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and somehow debugged this guide. I hope I didn't forget to mention anyone. So look at the refs and read the original sources.
 
 Well, «Debian... Debian never changes».
 ## Current status
@@ -22,6 +22,7 @@ Some steps require more investigation, testing and optimization:
 - SecureBoot steps?
 - cryptsetup iter-time value (to find a good balance between security and system startup time)
 - ?
+
 This guide can be easily adapted to install Debian Testing or Sid without much effort.
 ## Disk layout:
 * ESP / efi partition: 350M - fat32
@@ -73,8 +74,8 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
         9. [Encryption settings](encryption-settings)
             1. [Environemnt variables](environment-variables)
             2. [LUKS Keyfile](luks-keyfile)
-            3. [crypttab](#crypttab)
-            4. [initramfs](#initramfs)
+            3. [Crypttab](#crypttab)
+            4. [Initramfs](#initramfs)
 	10. [Bootloader](#bootloader)
     4. [Complete installation](#complete-installation)
 3. [Next steps](#next-steps)
@@ -85,7 +86,6 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
 # Initial settings
 ## Live OS
 The installation method (debootstrap) used in this guide requires internet access. The least problematic way to get online is to use a wired connection.
-
 ### Logging in (locally)
 The user "user" has the password "live"
 ### BIOS or UEFI?
@@ -470,6 +470,7 @@ reboot
 # Next steps
 (Under construction)
 * Add an unprivileged user and sudoers settings
+* Tuning cryptsetup iter-time value
 * BTRFS snapshots with grub integration
 * Additional software (NetworkManager and so on)
 * Emergency
