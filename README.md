@@ -4,8 +4,6 @@ Debian 12 GNU/Linux Installation Guide (SSD/NVMe, FDE with LUKS, BTRFS and deboo
 Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and relatively debugged this guide. I hope I didn't forget to mention anyone. So watch the refs and read.
 
 Well, «Debian... Debian never changes».
-
-Go!
 ## Current status
 - Will _always_ be a beta version and without any guarantees in the future. Price of freedom.
 - Tested for Debian 12.5.0 "Bookworm" Stable.
@@ -24,7 +22,6 @@ Some steps require more investigation, testing and optimization:
 - SecureBoot steps?
 - cryptsetup iter-time value (to find a good balance between security and system startup time)
 - ?
-
 This guide can be easily adapted to install Debian Testing or Sid without much effort.
 ## Disk layout:
 * ESP / efi partition: 350M - fat32
@@ -73,16 +70,17 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
         6. [Console font](#console-font)
         7. [Date and time](#date-and-time)
         8. [Network connectivity](#network-connectivity)
-        10. [Encryption settings](encryption-settings)
+        9. [Encryption settings](encryption-settings)
             1. [Environemnt variables](environment-variables)
             2. [LUKS Keyfile](luks-keyfile)
             3. [crypttab](#crypttab)
             4. [initramfs](#initramfs)
-	8. [Bootloader](#bootloader)
-    4. [Completion](#completion)
-5. [Refs](#refs)
-6. [See also](#see-also)
-7. [Bonus №1](bonus-1)
+	10. [Bootloader](#bootloader)
+    4. [Complete installation](#complete-installation)
+3. [Next steps](#next-steps)
+4. [Refs](#refs)
+5. [See also](#see-also)
+6. [Bonus №1](bonus-1)
 
 # Initial settings
 ## Live OS
@@ -263,17 +261,19 @@ mount -o subvol=@apt,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/cache/apt
 ```
 and if needed for some apps:
 ```bash
-mkdir -p /mnt/{var/lib/libvirt/images,var/lib/docker/btrfs}
+mkdir -p /mnt/{var/lib/libvirt/images,var/lib/docker/btrfs,var/lib/containers}
+
+# libvirt
 mount -o subvol=@libvirt,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/libvirt/images
-mount -o subvol=@docker,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/docker/btrfs
-#mount -o subvol=@libvirt_images,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/libvirt/images
 chattr +C -R /mnt/var/lib/libvirt/images/
-#
-#mount -o subvol=@lib_containers,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/containers
-#chattr +C -R /mnt/var/lib/containers
-#
-#mount -o subvol=@docker,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/docker/btrfs
-#chattr +C -R /mnt/var/lib/docker/btrfs
+
+# podman
+mount -o subvol=@podman,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/containers
+chattr +C -R /mnt/var/lib/containers
+
+# docker
+mount -o subvol=@docker,$mount_opt /dev/mapper/${DM}${RPN}_crypt /mnt/var/lib/docker/btrfs
+chattr +C -R /mnt/var/lib/docker/btrfs
 ```
 #### Making swapfile
 Although the Debian Wiki does [not recommend](https://wiki.debian.org/Btrfs#Status) using swap files for the btrfs filesystem, it seems more convenient than a dedicated partition, at least for the desktop.
@@ -329,10 +329,11 @@ ff02::2${TAB}${TAB}ip6-allrouters
 EOF
 ```
 ### Apt sources list
-See https://wiki.debian.org/SourcesList.
+See for [details](#https://wiki.debian.org/SourcesList)
 ```bash
 apt install lsb-release
 mv /etc/apt/sources.list /etc/apt/sources.list.old
+
 CODENAME=$(lsb_release --codename --short)
 #stable, non-free, backports
 cat > /etc/apt/sources.list << EOF
@@ -354,7 +355,7 @@ apt update
 ### System packages and kernel
 For better hardware support (Wi-Fi), I use the kernel from the backports repository. Alternatively, it can be installed from the main repo.
 ```bash 
-#apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus # usbutils hwinfo
+#apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus
 
 # Silent install. We'll make the settings later.
 DEBIAN_FRONTEND=noninteractive apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate locales console-setup fonts-terminus #systemd-timesyncd 
@@ -364,7 +365,7 @@ DEBIAN_FRONTEND=noninteractive apt install btrfs-progs dosfstools cryptsetup-ini
 apt install linux-image-amd64/${CODENAME}-backports \
  linux-headers-amd64/${CODENAME}-backports
 
-#OR from main repo 
+#OR from the main repo 
 #apt install linux-image-amd64 linux-headers-amd64
 ```
 ### System locales
@@ -459,13 +460,19 @@ echo 'GRUB_GFXMODE=1920x1080x32' >> /etc/default/grub
 update-grub
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Debian --recheck
 ```
-### Almost done
-Leave chroot environment and reboot the machine.
+### Complete installation
+Leave chroot environment and reboot.
 ```bash
 exit
 umount -a
 reboot
 ```
+# Next steps
+(Under construction)
+* Add an unprivileged user and sudoers settings
+* BTRFS snapshots with grub integration
+* Additional software (NetworkManager and so on)
+* Emergency
 # Refs
   0. https://www.debian.org/releases/bookworm/amd64/
   1. https://wiki.debian.org/Debootstrap
@@ -476,8 +483,10 @@ reboot
   6. https://itsfoss.com/swap-size/
   7. https://btrfs.readthedocs.io/en/stable/Swapfile.html
   8. https://wiki.debian.org/SSDOptimization
-  9. https://wiki.debian.org/DateTime
-  10. https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
+  9. https://wiki.debian.org/NetworkConfiguration
+  10. https://wiki.debian.org/DateTime
+  11. https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
+# See also
 # Bonus №1
 ```bash
 #Make grub great again!
@@ -488,3 +497,4 @@ chmod +x /tmp/install.sh
 /tmp/install.sh
 reboot
 ```
+![Alt text](/Images/fallout-grub-theme.PNG?raw=true "GRUB fallout theme")
