@@ -67,28 +67,19 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
     3. [Basic configuration](#basic-configuration)
         1. [Root password and shell](#root-password-and-shell)
         2. [Hostname and /etc/hosts](hostname-and-etc-hosts)
-        3. [Date and time](#date-and-time)
-        4. [System locales](#system-locales)
-        5. [Console font](#console-font)
-        6. [Apt sources list](apt-sources-list)
-        7. [System packages and kernel](#system-packages-and-kernel)
-        8. [Encryption settings](encryption-settings)
+        3. [Apt sources list](apt-sources-list)
+        4. [System packages and kernel](#system-packages-and-kernel)
+        5. [System locales](#system-locales)
+        6. [Console font](#console-font)
+        7. [Date and time](#date-and-time)
+        8. [Network connectivity](#network-connectivity)
+        10. [Encryption settings](encryption-settings)
             1. [Environemnt variables](environment-variables)
             2. [LUKS Keyfile](luks-keyfile)
             3. [crypttab](#crypttab)
             4. [initramfs](#initramfs)
 	8. [Bootloader](#bootloader)
-    4. [Completing OS installation]
-
-3. [Next steps]
-	1. [System-wide settings](#system-wide-settings)
- 		1. [Network configuration (NetworkManager)](#network-configuration-networkmanager)
-   		2. [Firmware](#firmware)
-  		3. [Date and time](#date-and-time)
-    	4. [Syslog (socklog)](#syslog-socklog)
-     	5. [Seat management](#seat-management)
-     2. [User settings](#user-settings)
-     	1. [New normal user and doas](#new-normal-user-and-doas)
+    4. [Completion](#completion)
 5. [Refs](#refs)
 6. [See also](#see-also)
 7. [Bonus №1](bonus-1)
@@ -136,12 +127,12 @@ lsblk
 > _NVME device:_
 ```bash
 lsblk
-
   NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
   loop0     7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
                                    /run/live/rootfs/filesystem.squashfs
   sr0      11:0    1    3G  0 rom  /usr/lib/live/mount/medium
                                    /run/live/medium
+  nvme0n1 259:0    0   20G  0 disk
 ```
 Then set the environment variables:
 ```bash
@@ -193,7 +184,6 @@ lsblk -l
 > _NVME device:_
 ```bash
 lsblk -l
-
   NAME      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
   loop0       7:0    0  2.5G  1 loop /usr/lib/live/mount/rootfs/filesystem.squashfs
                                      /run/live/rootfs/filesystem.squashfs
@@ -257,7 +247,7 @@ Some applications may require their own subvolumes:
 # libvirt
 btrfs subvolume create /mnt/@libvirt
 # podman
-#btrfs subvolume create /mnt/@podman
+btrfs subvolume create /mnt/@podman
 # docker
 btrfs subvolume create /mnt/@docker
 ```
@@ -309,7 +299,8 @@ We are ready to deploy Debian.
 ```bash
 apt install debootstrap arch-install-scripts
 debootstrap --arch amd64 stable /mnt
-#debootstrap --arch amd64 testing /mnt # for Debian Testing 
+#debootstrap --arch amd64 testing /mnt # for Debian Testing
+#debootstrap --arch amd64 sid /mnt # for Debian Sid 
 ```
 ## Chroot
 ```bash
@@ -336,31 +327,6 @@ ff00::0${TAB}${TAB}ip6-mcastprefix
 ff02::1${TAB}${TAB}ip6-allnodes
 ff02::2${TAB}${TAB}ip6-allrouters
 EOF
-```
-### Date and time
-```bash
-export TimeZone="Europe/Moscow"
-ln -fs /usr/share/zoneinfo/${TimeZone} /etc/localtime
-#ln -fs /usr/share/zoneinfo/Europe/Moscow /etc/localtime
-dpkg-reconfigure --frontend noninteractive tzdata
-```
-### System locales
-```bash
-apt install locales
-#dpkg-reconfigure locales
-sed -i 's/# en_US.UTF-8/en_US.UTF-8/g' /etc/locale.gen
-sed -i 's/# ru_RU.UTF-8/ru_RU.UTF-8/g' /etc/locale.gen
-#locale-gen
-echo 'LANG="en_US.UTF-8"' > /etc/default/locale
-dpkg-reconfigure --frontend=noninteractive locales
-update-locale LANG=en_US.UTF-8
-#dpkg-reconfigure locales
-```
-### Console font
-```bash
-# Something like UTF-8 --> Guess optimal character set --> TerminusBold --> 16х32 (framebuffer only)
-apt install console-setup
-dpkg-reconfigure console-setup
 ```
 ### Apt sources list
 See https://wiki.debian.org/SourcesList.
@@ -390,6 +356,9 @@ For better hardware support (Wi-Fi), I use the kernel from the backports reposit
 ```bash 
 #apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate systemd-timesyncd fonts-terminus # usbutils hwinfo
 
+# Silent install. We'll make the settings later.
+DEBIAN_FRONTEND=noninteractive apt install btrfs-progs dosfstools cryptsetup-initramfs grub-efi cryptsetup-suspend firmware-linux firmware-linux-nonfree sudo neovim bash-completion command-not-found plocate locales console-setup fonts-terminus #systemd-timesyncd 
+
 #install kernel from backports
 #apt install -t ${CODENAME}-backports linux-image-amd64 linux-headers-amd64
 apt install linux-image-amd64/${CODENAME}-backports \
@@ -397,6 +366,49 @@ apt install linux-image-amd64/${CODENAME}-backports \
 
 #OR from main repo 
 #apt install linux-image-amd64 linux-headers-amd64
+```
+### System locales
+```bash
+#apt install locales
+#dpkg-reconfigure locales
+sed -i 's/# en_US.UTF-8/en_US.UTF-8/g' /etc/locale.gen
+sed -i 's/# ru_RU.UTF-8/ru_RU.UTF-8/g' /etc/locale.gen
+#locale-gen
+echo 'LANG="en_US.UTF-8"' > /etc/default/locale
+dpkg-reconfigure --frontend=noninteractive locales
+update-locale LANG=en_US.UTF-8
+#dpkg-reconfigure locales
+```
+### Console font
+```bash
+# Something like UTF-8 --> Guess optimal character set --> TerminusBold --> 16х32 (framebuffer only)
+#apt install console-setup
+dpkg-reconfigure console-setup
+```
+### Date and time
+[Since](#https://wiki.debian.org/DateTime#Setting_the_time_automatically) Debian 12, the default NTP client is Systemd's systemd-timesyncd.
+```bash
+export TimeZone="Europe/Moscow"
+ln -fs /usr/share/zoneinfo/${TimeZone} /etc/localtime
+#ln -fs /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+dpkg-reconfigure --frontend noninteractive tzdata
+
+# systemd-timesyncd configuration
+mkdir /etc/systemd/timesyncd.conf.d/
+cat > /etc/systemd/timesyncd.conf.d/my-time-settings.conf << EOF
+[Time]
+NTP=0.ru.pool.ntp.org 1.ru.pool.ntp.org 2.ru.pool.ntp.org server 3.ru.pool.ntp.org
+FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+EOF
+```
+### Network connectivity
+```bash
+# Accessing the Internet after installation is complete (DHCP)...
+export NETWORKDEVICE="ens33"
+cat > /etc/network/interfaces.d/${NETWORKDEVICE}.conf << EOF
+auto ${NETWORKDEVICE}
+iface ${NETWORKDEVICE} inet dhcp
+EOF
 ```
 ### Encryption settings
 See details [here](https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html)
@@ -447,8 +459,7 @@ echo 'GRUB_GFXMODE=1920x1080x32' >> /etc/default/grub
 update-grub
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Debian --recheck
 ```
-
-### Finalizing OS Installation
+### Almost done
 Leave chroot environment and reboot the machine.
 ```bash
 exit
@@ -456,10 +467,24 @@ umount -a
 reboot
 ```
 # Refs
-  0. https://wiki.debian.org/initramfs
-  1. https://wiki.debian.org/Btrfs
-  2. https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
-  3. https://btrfs.readthedocs.io/en/stable/Swapfile.html
-  4. https://wiki.debian.org/SSDOptimization
-  5. https://itsfoss.com/swap-size/
-  6. https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html
+  0. https://www.debian.org/releases/bookworm/amd64/
+  1. https://wiki.debian.org/Debootstrap
+  2. https://cryptsetup-team.pages.debian.net/cryptsetup/encrypted-boot.html
+  3. https://wiki.archlinux.org/title/dm-crypt/Device_encryption
+  4. https://wiki.debian.org/initramfs
+  5. https://wiki.debian.org/Btrfs
+  6. https://itsfoss.com/swap-size/
+  7. https://btrfs.readthedocs.io/en/stable/Swapfile.html
+  8. https://wiki.debian.org/SSDOptimization
+  9. https://wiki.debian.org/DateTime
+  10. https://gist.github.com/braindevices/fde49c6a8f6b9aaf563fb977562aafec
+# Bonus №1
+```bash
+#Make grub great again!
+sudo -s
+apt install -y wget
+wget -P /tmp https://github.com/shvchk/fallout-grub-theme/raw/master/install.sh
+chmod +x /tmp/install.sh
+/tmp/install.sh
+reboot
+```
