@@ -1,5 +1,5 @@
 # Installation Guide for Debian 12 (Stable) | FDE | SSD | LUKS | BTRFS
-Debian 12 GNU/Linux Installation Guide (SSD/NVMe, FDE with LUKS, BTRFS and debootstrap as deploying method)
+Debian 12 GNU/Linux Installation Guide (SSD/NVME, FDE with LUKS, BTRFS and debootstrap as deploying method)
 # Introduction
 Essentially, this guide is the collective work of many people, based on whose “cave paintings” I compiled and relatively debugged this guide. I hope I didn't forget to mention anyone. So watch the refs and read.
 
