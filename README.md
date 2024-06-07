@@ -76,7 +76,7 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
             2. [LUKS Keyfile](luks-keyfile)
             3. [Crypttab](#crypttab)
             4. [Initramfs](#initramfs)
-	10. [Bootloader](#bootloader)
+        10. [Bootloader](#bootloader)
     4. [Complete installation](#complete-installation)
 3. [Next steps](#next-steps)
 4. [Refs](#refs)
