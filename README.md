@@ -52,7 +52,7 @@ This guide can be easily adapted to install Debian Testing or Sid without much e
     2. [Creating file systems and swap](#creating-file-systems-and-swap)
     	1. [Set environment variables](#set-environment-variables)
         2. [Partitioning disk](#partitioning-disk)
-        3. [Partitions encryption](#partition-encryption)
+        3. [Partition encryption](#partition-encryption)
            1. [LUKS-encrypted root](#luks-encrypted-root)
            2. [Opening encrypted partitions](#open-encrypted-partitions)
 	4. [Formatting partitions](#formatting-partitions)
