@@ -297,10 +297,16 @@ swapon /mnt/swap/swapfile
 We are ready to deploy Debian.
 ## Base system (debootstrap)
 ```bash
+export DEBOOTSTRAP_MIRROR=""
+# or
+export DEBOOTSTRAP_MIRROR="http://deb.debian.org/debian"
+# or
+export DEBOOTSTRAP_MIRROR="http://mirror.mephi.ru/debian"
+
 apt install debootstrap arch-install-scripts
-debootstrap --arch amd64 stable /mnt
-#debootstrap --arch amd64 testing /mnt # for Debian Testing
-#debootstrap --arch amd64 sid /mnt # for Debian Sid 
+debootstrap --arch amd64 stable /mnt ${DEBOOTSTRAP_MIRROR}
+#debootstrap --arch amd64 testing /mnt ${DEBOOTSTRAP_MIRROR} # for Debian Testing
+#debootstrap --arch amd64 sid /mnt ${DEBOOTSTRAP_MIRROR} # for Debian Sid 
 ```
 ## Chroot
 ```bash
@@ -331,6 +337,7 @@ EOF
 ### Apt sources list
 See for [details](#https://wiki.debian.org/SourcesList)
 ```bash
+# with default APT repos
 apt install lsb-release
 mv /etc/apt/sources.list /etc/apt/sources.list.old
 
@@ -348,6 +355,33 @@ deb-src http://deb.debian.org/debian ${CODENAME}-updates main contrib non-free n
 
 deb http://deb.debian.org/debian ${CODENAME}-backports main contrib non-free non-free-firmware
 deb-src http://deb.debian.org/debian ${CODENAME}-backports main contrib non-free non-free-firmware
+EOF
+
+apt update
+```
+OR add mirror for APT
+```bash
+#export APT_MIRROR="http://deb.debian.org/debian"
+# or
+export APT_MIRROR="http://mirror.mephi.ru/debian/"
+
+apt install lsb-release
+mv /etc/apt/sources.list /etc/apt/sources.list.old
+
+CODENAME=$(lsb_release --codename --short)
+#stable, non-free, backports
+cat > /etc/apt/sources.list << EOF
+deb ${APT_MIRROR} ${CODENAME} main contrib non-free non-free-firmware
+deb-src ${APT_MIRROR} ${CODENAME} main contrib non-free non-free-firmware
+
+deb ${APT_MIRROR} ${CODENAME}-security main contrib non-free non-free-firmware
+deb-src ${APT_MIRROR} ${CODENAME}-security main contrib non-free non-free-firmware
+
+deb ${APT_MIRROR} ${CODENAME}-updates main contrib non-free non-free-firmware
+deb-src ${APT_MIRROR} ${CODENAME}-updates main contrib non-free non-free-firmware
+
+deb ${APT_MIRROR} ${CODENAME}-backports main contrib non-free non-free-firmware
+deb-src ${APT_MIRROR} ${CODENAME}-backports main contrib non-free non-free-firmware
 EOF
 
 apt update
